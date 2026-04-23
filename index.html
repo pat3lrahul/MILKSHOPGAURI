@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agro Pro Ultra - Cloud Sync</title>
+    <title>RAHUL GENERAL STORE - Cloud Sync</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -49,7 +49,7 @@
 <button class="toggle-btn" onclick="toggleMenu()"><i class="fas fa-bars"></i></button>
 
 <div class="sidebar" id="sidebar">
-    <div class="sidebar-header"><i class="fas fa-boxes-packing"></i> AGRO ULTRA CLOUD</div>
+    <div class="sidebar-header"><i class="fas fa-boxes-packing"></i> RAHUL GENERAL STORE</div>
     <div class="nav-item active" onclick="nav('dash')"><i class="fas fa-chart-line"></i> Dashboard</div>
     <div class="nav-item" onclick="nav('bill')"><i class="fas fa-plus-circle"></i> New Entry</div>
     <div class="nav-item" onclick="nav('cust')"><i class="fas fa-address-book"></i> Customer Master</div>
@@ -127,7 +127,7 @@
 
     <div id="printArea" class="print-only">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px;">
-            <h1 style="margin: 0;">AGRO SUPPLY CENTER</h1>
+            <h1 style="margin: 0;">RAHUL GENERAL STORE</h1>
             <p style="margin: 5px 0;">Cash / Credit Memo</p>
         </div>
         <div style="display: flex; justify-content: space-between; margin-top: 20px;">
@@ -176,7 +176,7 @@
         if(bill.name === "Not Registered" || !bill.qty) return alert("Check data!");
 
         // Cloud Sync (Background mein save hoga)
-        if(CLOUD_URL !== 'YOUR_GOOGLE_SHEET_URL_HERE') {
+        if(CLOUD_URL !== 'https://script.google.com/macros/s/AKfycbzDXuseRAd-VNLo-ZD5237N7NbDW-e7Pf1iXodrVaOQkjxzXWajXyEYi6URTNW4by97/exec') {
             fetch(CLOUD_URL, { method: 'POST', body: JSON.stringify(bill) }).catch(err => console.log("Cloud Offline"));
         }
 
