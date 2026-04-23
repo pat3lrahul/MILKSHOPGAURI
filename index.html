@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agro Pro Ultra - Management System</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root { --primary: #1e293b; --secondary: #10b981; --accent: #3b82f6; --danger: #ef4444; --bg: #f8fafc; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; display: flex; transition: 0.3s; color: #334155; }
+        .sidebar { width: 260px; background: var(--primary); color: white; height: 100vh; position: fixed; transition: 0.3s; z-index: 1000; }
+        .sidebar.hidden { width: 0; overflow: hidden; }
+        .main-content { margin-left: 260px; padding: 40px; width: 100%; transition: 0.3s; }
+        .main-content.expanded { margin-left: 0; }
+        .toggle-btn { position: fixed; top: 15px; left: 15px; z-index: 1100; background: var(--primary); color: white; border: none; border-radius: 8px; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .sidebar-header { padding: 60px 20px 20px; font-weight: 800; font-size: 20px; color: var(--secondary); border-bottom: 1px solid #334155; }
+        .nav-item { padding: 15px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: 0.2s; border-radius: 0 25px 25px 0; margin-top: 5px; }
+        .nav-item:hover, .nav-item.active { background: #334155; color: var(--secondary); }
+        .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-bottom: 4px solid #ddd; }
+        .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-bottom: 25px; }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; align-items: end; }
+        label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; color: #64748b; }
+        input, select { padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; width: 100%; box-sizing: border-box; font-size: 14px; }
+        button { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; transition: 0.2s; display: flex; align-items: center; gap: 8px; justify-content: center; }
+        .btn-save { background: var(--secondary); color: white; }
+        .btn-print-direct { background: #8b5cf6; color: white; }
+        .btn-export { background: var(--primary); color: white; }
+        .btn-import { background: #6366f1; color: white; }
+        .section { display: none; }
+        .section.active { display: block; animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { text-align: left; padding: 15px; border-bottom: 2px solid #f1f5f9; color: #64748b; font-size: 13px; }
+        td { padding: 15px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        .filter-bar { background: #f1f5f9; padding: 15px; border-radius: 12px; margin-bottom: 15px; }
+
+        @media print {
+            .sidebar, .toggle-btn, .filter-bar, .nav-item, button, h3, .grid-stats, .card:not(.print-container) { display: none !important; }
+            .main-content { margin: 0; padding: 0; width: 100%; }
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+        }
+        .print-only { display: none; }
+    </style>
+</head>
+<body>
+
+<button class="toggle-btn" onclick="toggleMenu()"><i class="fas fa-bars"></i></button>
+
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header"><i class="fas fa-boxes-packing"></i> AGRO ULTRA V3</div>
+    <div class="nav-item active" onclick="nav('dash')"><i class="fas fa-chart-line"></i> Dashboard</div>
+    <div class="nav-item" onclick="nav('bill')"><i class="fas fa-plus-circle"></i> New Entry</div>
+    <div class="nav-item" onclick="nav('cust')"><i class="fas fa-address-book"></i> Customer Master</div>
+    <div class="nav-item" onclick="nav('repo')"><i class="fas fa-file-invoice-dollar"></i> Advanced Reports</div>
+</div>
+
+<div class="main-content" id="main">
+    <div id="dash" class="section active">
+        <div class="grid-stats">
+            <div class="stat-card" style="border-color: var(--secondary)"><label>TOTAL REVENUE</label><h2 id="sumRev">₹0</h2></div>
+            <div class="stat-card" style="border-color: var(--accent)"><label>TOTAL QUANTITY</label><h2 id="sumQty">0</h2></div>
+            <div class="stat-card" style="border-color: #f59e0b"><label>AVG. BILL VALUE</label><h2 id="sumAvg">₹0</h2></div>
+        </div>
+    </div>
+
+    <div id="bill" class="section">
+        <div class="card">
+            <h3><i class="fas fa-receipt"></i> Create New Invoice</h3>
+            <div class="form-row">
+                <div><label>Bill Date</label><input type="date" id="bDate"></div>
+                <div><label>Bill Number</label><input type="text" id="bNo" placeholder="INV-001"></div>
+                <div><label>Customer Code</label><input type="text" id="bCode" oninput="lookCust()" placeholder="Code"></div>
+                <div><label>Customer Name</label><input type="text" id="bName" readonly style="background:#f1f5f9"></div>
+                <div><label>Qty (Price 1175)</label><input type="number" id="bQty" oninput="calcBill()" placeholder="0"></div>
+                <div><label>Net Total</label><input type="text" id="bTotal" readonly style="font-weight:bold; color:var(--secondary)"></div>
+            </div>
+            <br>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-save" id="btnSave" onclick="saveData(false)"><i class="fas fa-save"></i> Save Only</button>
+                <button class="btn-print-direct" onclick="saveData(true)"><i class="fas fa-print"></i> Save & Print Bill</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="cust" class="section">
+        <div class="card">
+            <h3><i class="fas fa-user-plus"></i> Register/Edit Customer</h3>
+            <div class="form-row">
+                <input type="text" id="cCode" placeholder="Customer Code">
+                <input type="text" id="cName" placeholder="Full Name">
+                <button class="btn-save" id="btnCust" onclick="handleCust()">Register Customer</button>
+            </div>
+        </div>
+        <div class="card">
+            <table>
+                <thead><tr><th>Code</th><th>Customer Name</th><th>Actions</th></tr></thead>
+                <tbody id="custTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="repo" class="section">
+        <div class="card">
+            <h3><i class="fas fa-sync-alt"></i> Data Management</h3>
+            <div class="form-row" style="margin-bottom: 20px; background: #eef2ff; padding: 15px; border-radius: 12px;">
+                <button class="btn-export" onclick="doExcel()"><i class="fas fa-file-download"></i> Backup Excel</button>
+                <input type="file" id="importFile" accept=".xlsx, .xls" style="display:none" onchange="importExcel(event)">
+                <button class="btn-import" onclick="document.getElementById('importFile').click()"><i class="fas fa-file-upload"></i> Restore Backup</button>
+            </div>
+            <div class="filter-bar">
+                <div class="form-row">
+                    <input type="text" id="fSearch" oninput="refreshAll()" placeholder="Search Name, Code, Bill...">
+                    <input type="date" id="fStart" onchange="refreshAll()">
+                    <input type="date" id="fEnd" onchange="refreshAll()">
+                    <input type="month" id="fMonth" onchange="refreshAll()">
+                </div>
+            </div>
+            <div style="overflow-x:auto">
+                <table>
+                    <thead><tr><th>Date</th><th>Bill No</th><th>Customer</th><th>Qty</th><th>Total</th><th class="no-print">Actions</th></tr></thead>
+                    <tbody id="repoTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="printArea" class="print-only">
+        <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px;">
+            <h1 style="margin: 0;">AGRO SUPPLY CENTER</h1>
+            <p style="margin: 5px 0;">Gujarat, India | Cash / Credit Memo</p>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+            <div>
+                <p><strong>Bill To:</strong> <span id="pName"></span></p>
+                <p><strong>Cust Code:</strong> <span id="pCode"></span></p>
+            </div>
+            <div style="text-align: right;">
+                <p><strong>Bill No:</strong> <span id="pBill"></span></p>
+                <p><strong>Date:</strong> <span id="pDate"></span></p>
+            </div>
+        </div>
+        <table style="width: 100%; border: 1px solid #000; margin-top: 20px; border-collapse: collapse;">
+            <thead style="background: #eee;">
+                <tr><th style="border: 1px solid #000; padding: 8px;">Description</th><th style="border: 1px solid #000; padding: 8px;">Qty</th><th style="border: 1px solid #000; padding: 8px;">Rate</th><th style="border: 1px solid #000; padding: 8px;">Total</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="border: 1px solid #000; padding: 15px;">Agricultural Supplies / Urea</td>
+                    <td style="border: 1px solid #000; padding: 15px; text-align: center;" id="pQty"></td>
+                    <td style="border: 1px solid #000; padding: 15px; text-align: center;">₹1175</td>
+                    <td style="border: 1px solid #000; padding: 15px; text-align: center;" id="pTotal"></td>
+                </tr>
+            </tbody>
+        </table>
+        <div style="text-align: right; margin-top: 20px;">
+            <h2>Grand Total: <span id="pGrand"></span></h2>
+        </div>
+        <div style="margin-top: 100px; display: flex; justify-content: space-between;">
+            <p style="border-top: 1px solid #000; width: 150px; text-align: center;">Customer Signature</p>
+            <p style="border-top: 1px solid #000; width: 150px; text-align: center;">For Agro Center</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    let appData = JSON.parse(localStorage.getItem('agroDataV3')) || { customers: [], sales: [] };
+    let editState = { billId: null, custCode: null };
+
+    function toggleMenu() { document.getElementById('sidebar').classList.toggle('hidden'); document.getElementById('main').classList.toggle('expanded'); }
+    function nav(id) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        event.currentTarget.classList.add('active');
+        refreshAll(); renderCusts();
+    }
+
+    function handleCust() {
+        const code = document.getElementById('cCode').value;
+        const name = document.getElementById('cName').value;
+        if(!code || !name) return alert("Fill all fields");
+        if(editState.custCode) {
+            const idx = appData.customers.findIndex(c => c.code === editState.custCode);
+            appData.sales.forEach(s => { if(s.code === editState.custCode) s.name = name; });
+            appData.customers[idx] = { code, name };
+            editState.custCode = null;
+            document.getElementById('btnCust').innerText = "Register Customer";
+        } else {
+            if(appData.customers.find(c => c.code === code)) return alert("Code Exists!");
+            appData.customers.push({ code, name });
+        }
+        save(); renderCusts();
+        document.getElementById('cCode').value = ''; document.getElementById('cName').value = '';
+    }
+
+    function renderCusts() {
+        const body = document.getElementById('custTableBody');
+        body.innerHTML = appData.customers.map(c => `<tr><td><b>${c.code}</b></td><td>${c.name}</td><td><button onclick="editCust('${c.code}')">Edit</button> <button onclick="delCust('${c.code}')">Del</button></td></tr>`).join('');
+    }
+
+    function lookCust() {
+        const c = appData.customers.find(x => x.code === document.getElementById('bCode').value);
+        document.getElementById('bName').value = c ? c.name : "Not Registered";
+    }
+
+    function calcBill() { document.getElementById('bTotal').value = document.getElementById('bQty').value * 1175; }
+
+    function saveData(shouldPrint) {
+        const bill = {
+            id: editState.billId || Date.now(),
+            date: document.getElementById('bDate').value,
+            billNo: document.getElementById('bNo').value,
+            code: document.getElementById('bCode').value,
+            name: document.getElementById('bName').value,
+            qty: Number(document.getElementById('bQty').value),
+            total: Number(document.getElementById('bQty').value) * 1175
+        };
+        if(bill.name === "Not Registered" || !bill.qty) return alert("Check entry!");
+        
+        if(editState.billId) {
+            const idx = appData.sales.findIndex(s => s.id === editState.billId);
+            appData.sales[idx] = bill;
+            editState.billId = null;
+        } else { 
+            appData.sales.push(bill); 
+        }
+        
+        save();
+        
+        if(shouldPrint) {
+            printBill(bill.id);
+        } else {
+            alert("Bill Saved Successfully!");
+        }
+        
+        nav('repo');
+        resetForm();
+    }
+
+    function resetForm() {
+        document.getElementById('bNo').value = '';
+        document.getElementById('bCode').value = '';
+        document.getElementById('bName').value = '';
+        document.getElementById('bQty').value = '';
+        document.getElementById('bTotal').value = '';
+    }
+
+    function refreshAll() {
+        const body = document.getElementById('repoTableBody');
+        const sText = document.getElementById('fSearch').value.toLowerCase();
+        const sStart = document.getElementById('fStart').value;
+        const sEnd = document.getElementById('fEnd').value;
+        const sMonth = document.getElementById('fMonth').value;
+
+        let filtered = appData.sales.filter(s => {
+            const matchesText = (s.name || '').toLowerCase().includes(sText) || (s.billNo || '').toLowerCase().includes(sText) || (s.code || '').includes(sText);
+            const matchesMonth = sMonth ? s.date.startsWith(sMonth) : true;
+            const matchesRange = (sStart && sEnd) ? (s.date >= sStart && s.date <= sEnd) : true;
+            return matchesText && matchesMonth && matchesRange;
+        });
+
+        let totalR = 0, totalQ = 0;
+        body.innerHTML = filtered.reverse().map(s => {
+            totalR += s.total; totalQ += s.qty;
+            return `<tr>
+                <td>${s.date}</td><td>${s.billNo}</td><td>${s.name}</td><td>${s.qty}</td><td>₹${s.total}</td>
+                <td class="no-print">
+                    <button style="background:#3b82f6;color:white;padding:5px 10px;" onclick="printBill(${s.id})"><i class="fas fa-print"></i></button>
+                    <button style="background:#f39c12;color:white;padding:5px 10px;" onclick="editBill(${s.id})"><i class="fas fa-edit"></i></button>
+                    <button style="background:#ef4444;color:white;padding:5px 10px;" onclick="delBill(${s.id})"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>`;
+        }).join('');
+        document.getElementById('sumRev').innerText = "₹" + totalR;
+        document.getElementById('sumQty').innerText = totalQ;
+        document.getElementById('sumAvg').innerText = "₹" + (filtered.length ? Math.round(totalR/filtered.length) : 0);
+    }
+
+    function printBill(id) {
+        const s = appData.sales.find(x => x.id === id);
+        if(!s) return;
+        document.getElementById('pName').innerText = s.name;
+        document.getElementById('pCode').innerText = s.code;
+        document.getElementById('pBill').innerText = s.billNo;
+        document.getElementById('pDate').innerText = s.date;
+        document.getElementById('pQty').innerText = s.qty;
+        document.getElementById('pTotal').innerText = "₹" + s.total;
+        document.getElementById('pGrand').innerText = "₹" + s.total;
+        setTimeout(() => { window.print(); }, 500);
+    }
+
+    function editBill(id) {
+        const s = appData.sales.find(x => x.id === id);
+        editState.billId = id;
+        document.getElementById('bDate').value = s.date;
+        document.getElementById('bNo').value = s.billNo;
+        document.getElementById('bCode').value = s.code;
+        document.getElementById('bName').value = s.name;
+        document.getElementById('bQty').value = s.qty;
+        document.getElementById('bTotal').value = s.total;
+        document.getElementById('btnSave').innerHTML = "<i class='fas fa-save'></i> Update Bill";
+        nav('bill');
+    }
+
+    function delBill(id) {
+        if(confirm("Delete this bill?")) {
+            appData.sales = appData.sales.filter(s => s.id !== id);
+            save(); refreshAll();
+        }
+    }
+
+    function save() { localStorage.setItem('agroDataV3', JSON.stringify(appData)); }
+
+    function doExcel() {
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(appData.sales), "Sales");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(appData.customers), "Customers");
+        XLSX.writeFile(wb, "Agro_Center_Backup.xlsx");
+    }
+
+    function importExcel(event) {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            appData.sales = XLSX.utils.sheet_to_json(workbook.Sheets["Sales"]);
+            appData.customers = XLSX.utils.sheet_to_json(workbook.Sheets["Customers"]);
+            save(); location.reload();
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    document.getElementById('bDate').valueAsDate = new Date();
+    renderCusts(); refreshAll();
+</script>
+</body>
+</html>
